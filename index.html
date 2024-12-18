@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Activity Viewer</title>
+    <style>
+        body {
+            font-family: "Courier New", monospace;
+            background-color: #1e1e1e;
+            color: #00ff00;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1, h2 {
+            text-align: center;
+            color: #00ff00;
+        }
+
+        .cmd {
+            background-color: #000;
+            border: 1px solid #00ff00;
+            padding: 10px;
+            font-size: 16px;
+            margin: 20px auto;
+            width: 80%;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            height: 400px;
+            overflow-y: scroll;
+            overflow-x: hidden;
+            color: #00ff00;
+            font-family: "Courier New", monospace;
+        }
+
+        .input-container {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .input-container input {
+            padding: 10px;
+            font-size: 18px;
+            color: #00ff00;
+            background-color: #333;
+            border: 1px solid #00ff00;
+            width: 60%;
+            margin-top: 20px;
+        }
+
+        .meter {
+            margin: 10px 0;
+        }
+
+        .meter span {
+            color: #00ff00;
+        }
+
+        .bar {
+            width: 100%;
+            height: 20px;
+            background-color: #333;
+            border: 1px solid #00ff00;
+        }
+
+        .bar div {
+            height: 100%;
+            background-color: #00ff00;
+        }
+
+        .output-line {
+            margin-bottom: 10px;
+        }
+
+        .output-line span {
+            font-weight: bold;
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>GitHub User Activity Viewer</h1>
+    <div class="input-container">
+        <input type="text" id="username" placeholder="Enter GitHub username and press Enter">
+    </div>
+
+    <div id="output" class="cmd"></div>
+
+    <script>
+        // Fetch GitHub data when 'Enter' key is pressed
+        document.getElementById('username').addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                fetchGitHubData();
+            }
+        });
+
+        async function fetchGitHubData() {
+            const username = document.getElementById('username').value;
+            if (!username) {
+                alert("Please enter a GitHub username.");
+                return;
+            }
+
+            const output = document.getElementById('output');
+            output.textContent = 'Fetching data...';
+
+            try {
+                // Fetch repositories data from GitHub API
+                const res = await fetch(`https://api.github.com/users/${username}/repos`);
+                const repos = await res.json();
+
+                if (repos.message) {
+                    output.textContent = 'User not found or error occurred.';
+                    return;
+                }
+
+                // Process languages and usage
+                const languageUsage = {};
+                let totalBytes = 0;
+
+                for (const repo of repos) {
+                    const langRes = await fetch(repo.languages_url);
+                    const languages = await langRes.json();
+
+                    for (const [lang, bytes] of Object.entries(languages)) {
+                        if (languageUsage[lang]) {
+                            languageUsage[lang] += bytes;
+                        } else {
+                            languageUsage[lang] = bytes;
+                        }
+                        totalBytes += bytes;
+                    }
+                }
+
+                // Sort languages by usage
+                const sortedLanguages = Object.entries(languageUsage)
+                    .map(([lang, bytes]) => [lang, (bytes / totalBytes) * 100])
+                    .sort((a, b) => b[1] - a[1]);
+
+                output.innerHTML = `<h2>Language Usage for ${username}</h2>`;
+
+                // Display the results with progress bars
+                sortedLanguages.forEach(([lang, percentage]) => {
+                    const barWidth = Math.round(percentage * 2); // Scale to 50 chars
+
+                    const barDiv = `<div class="meter output-line">
+                        <span>${lang}</span>
+                        <div class="bar">
+                            <div style="width:${barWidth}%"></div>
+                        </div>
+                        <span>${percentage.toFixed(1)}%</span>
+                    </div>`;
+
+                    output.innerHTML += barDiv;
+                });
+
+            } catch (error) {
+                console.error(error);
+                output.textContent = 'An error occurred while fetching data.';
+            }
+        }
+    </script>
+</body>
+</html>
